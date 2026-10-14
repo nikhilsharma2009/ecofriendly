@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EcoRoute India</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+/* ===== Shared EcoRoute planner theme: beige + sage ===== */
+:root{--cream:#f5efe1;--cream-2:#fffdf6;--sage:#718e72;--sage-dark:#315b40;--sage-deep:#294b35;--sage-soft:#dfe8d5;--route:#718e72;--mut:#69796d;--panel:rgba(255,253,246,.94);--edge:rgba(49,91,64,.20)}
+html,body{height:100%;margin:0;background:var(--cream);color:var(--sage-deep);font:15px/1.45 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+#app{height:100%;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box;background:linear-gradient(180deg,#f5efe1 0%,#eef1e2 100%)}
+.box{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:10px;box-shadow:0 10px 28px rgba(58,76,49,.07);backdrop-filter:blur(10px)}
+input,select,button{font:inherit;color:var(--sage-deep);background:rgba(255,253,246,.96);border:1px solid rgba(49,91,64,.22);border-radius:10px;padding:10px 11px;min-width:0;box-shadow:0 3px 10px rgba(58,76,49,.04)}
+input::placeholder{color:#8b958b}button{cursor:pointer}button:hover{border-color:rgba(49,91,64,.42);transform:translateY(-1px)}
+:focus-visible{outline:2px solid #9aae8f;outline-offset:2px}select option{background:#fffdf6;color:#294b35}
+#top{display:flex;gap:8px}#top input{flex:1}
+#mapwrap{flex:1;position:relative;min-height:240px;border:1px solid rgba(49,91,64,.20);border-radius:16px;overflow:hidden;background:#e9e5d5;box-shadow:0 14px 35px rgba(58,76,49,.09)}
+#map{position:absolute;inset:0;background:#e9e5d5}
+#legendBtn{position:absolute;top:10px;right:10px;z-index:1000;background:rgba(255,253,246,.96);color:var(--sage-dark);border-color:rgba(49,91,64,.24);font-weight:700}
+#legend{position:absolute;top:58px;right:10px;z-index:1000;width:220px;display:none;font-size:13px;background:rgba(255,253,246,.96)}
+#legend div{display:flex;align-items:center;gap:8px;margin:5px 0}#legend i{width:22px;height:12px;border-radius:3px;flex:none}
+#chip{position:absolute;top:10px;left:10px;z-index:1000;display:none;background:#f3e5cd;border-color:#a47c48;color:#624b2f;font-size:12px;padding:6px 9px;font-weight:700}
+#bottom{display:flex;flex-direction:column;gap:6px;max-height:24vh;overflow:auto}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1 1 140px}
+#go{background:var(--sage-dark);color:#fff;border-color:var(--sage-dark);font-weight:700;box-shadow:0 7px 18px rgba(49,91,64,.15)}
+#res{font-size:14px;color:var(--mut);max-height:30vh;overflow:auto}#res strong{color:var(--sage-deep)}
+#nav{display:none;margin-top:8px;background:rgba(255,253,246,.97);border:1px solid rgba(49,91,64,.22);border-radius:12px;padding:10px}
+#nav .nav-title{font-size:12px;color:var(--sage);margin-bottom:3px;font-weight:800;letter-spacing:.7px}.nav-main{font-size:17px;font-weight:700;color:var(--sage-deep)}#nav .nav-dist{font-size:13px;color:var(--mut);margin-top:3px}
+#navBtn{background:var(--sage-soft);color:var(--sage-dark);border-color:rgba(49,91,64,.25);font-weight:700}#navBtn.active{background:var(--sage-dark);color:#fff}
+#navToggle{position:absolute;top:58px;left:10px;z-index:1000;background:rgba(255,253,246,.96);color:var(--sage-dark);border-color:rgba(49,91,64,.24);font-weight:700}
+#navPanel{position:absolute;top:104px;left:10px;right:10px;z-index:1000;display:none;max-width:390px}#navPanel .box{background:rgba(255,253,246,.97)}
+.score{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-weight:700}.dots{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}.dots span{display:flex;align-items:center;gap:4px}.dots em{width:12px;height:12px;border-radius:50%;display:inline-block}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#fffdf6;color:var(--sage-deep);border:1px solid rgba(49,91,64,.20)}.leaflet-popup-content b{color:var(--sage-dark)}
+.leaflet-control-zoom a{background:#fffdf6!important;color:var(--sage-dark)!important;border-color:rgba(49,91,64,.18)!important}.leaflet-control-zoom a:hover{background:#eef1e2!important}
+#indiaBoundaryStatus{position:absolute;left:10px;bottom:10px;z-index:1000;background:rgba(255,253,246,.96);border:1px solid rgba(49,91,64,.20);border-radius:9px;padding:6px 9px;font-size:11px;color:var(--sage-dark);box-shadow:0 5px 15px rgba(58,76,49,.08)}
+/* ===== Premium Landing Page ===== */
+#homeScreen{min-height:100vh;background:linear-gradient(180deg,#f5efe1 0%,#eef1e2 52%,#e6ead8 100%);color:#244331;display:flex;flex-direction:column;overflow:auto}
+.home-nav{position:sticky;top:0;z-index:3000;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px clamp(22px,5vw,72px);background:rgba(245,239,225,.9);border-bottom:1px solid rgba(65,100,72,.12);backdrop-filter:blur(14px)}
+.brand{font-weight:800;letter-spacing:-.4px;font-size:21px;color:#234b34;cursor:pointer;white-space:nowrap}
+.brand span{color:#71906f}
+.home-links{display:flex;align-items:center;gap:clamp(14px,3vw,34px);font-size:14px}
+.home-links a{color:#45604c;text-decoration:none;font-weight:600;cursor:pointer}
+.home-links a:hover{color:#234b34}
+.home-cta{border:1px solid #718e72;background:#315b40!important;color:#fff!important;border-radius:999px!important;padding:10px 17px!important;font-weight:700!important}
+.hero{width:min(1180px,calc(100% - 44px));margin:0 auto;display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:clamp(30px,7vw,90px);padding:clamp(64px,10vh,110px) 0 78px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;color:#5d785f;font-weight:800;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px}
+.eyebrow:before{content:"";width:26px;height:1px;background:#71906f}
+.hero h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(48px,7vw,84px);line-height:.98;letter-spacing:-3px;margin:0 0 24px;color:#234331;max-width:760px}
+.hero h1 em{font-style:normal;color:#71906f}
+.hero p{font-size:clamp(17px,2vw,20px);line-height:1.7;color:#607365;max-width:600px;margin:0 0 32px}
+.hero-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.primary-btn,.secondary-btn{border-radius:999px!important;padding:13px 20px!important;font-weight:800!important;border:1px solid #315b40!important;cursor:pointer}
+.primary-btn{background:#315b40!important;color:#fff!important;box-shadow:0 10px 24px rgba(49,91,64,.16)}
+.secondary-btn{background:transparent!important;color:#315b40!important}
+.hero-art{position:relative;min-height:390px;display:flex;align-items:center;justify-content:center}
+.hero-card{width:min(410px,90%);aspect-ratio:1/.94;background:rgba(255,252,243,.78);border:1px solid rgba(65,100,72,.16);border-radius:34px;box-shadow:0 28px 70px rgba(58,76,49,.14);padding:24px;box-sizing:border-box;transform:rotate(2deg)}
+.hero-card-inner{height:100%;border-radius:25px;background:linear-gradient(145deg,#dfe8d5,#edf0df);position:relative;overflow:hidden;border:1px solid rgba(65,100,72,.1)}
+.route-line{position:absolute;width:68%;height:48%;left:16%;top:25%;border:4px solid #71906f;border-left-color:transparent;border-bottom-color:#315b40;border-radius:45% 50% 45% 55%;transform:rotate(-12deg)}
+.route-dot{position:absolute;width:13px;height:13px;border-radius:50%;background:#315b40;box-shadow:0 0 0 7px rgba(49,91,64,.12)}
+.route-dot.a{left:17%;top:28%}.route-dot.b{right:18%;bottom:26%;background:#b68b52}
+.map-pill{position:absolute;left:18px;top:18px;background:#fffdf5;border:1px solid rgba(65,100,72,.14);padding:9px 12px;border-radius:14px;color:#55705a;font-size:12px;font-weight:800;box-shadow:0 8px 18px rgba(50,70,50,.08)}
+.leaf{position:absolute;font-size:70px;opacity:.16}.leaf.one{right:-12px;top:-10px;transform:rotate(25deg)}.leaf.two{left:-15px;bottom:-18px;transform:rotate(-25deg)}
+.section{width:min(1120px,calc(100% - 44px));margin:0 auto;padding:76px 0}
+.section-head{max-width:650px;margin-bottom:34px}.section-kicker{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;color:#718e72;margin-bottom:10px}.section h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(34px,5vw,52px);letter-spacing:-1.5px;margin:0;color:#294b35}.section-head p{color:#69796d;line-height:1.7;font-size:16px}
+.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.feature-card{background:rgba(255,253,246,.75);border:1px solid rgba(65,100,72,.13);border-radius:22px;padding:28px;min-height:190px;box-shadow:0 15px 35px rgba(58,76,49,.06)}.feature-icon{font-size:30px;margin-bottom:22px}.feature-card h3{margin:0 0 9px;color:#294b35;font-size:19px}.feature-card p{margin:0;color:#718075;line-height:1.65;font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid rgba(65,100,72,.16)}.step{padding:28px 26px 12px 0;border-right:1px solid rgba(65,100,72,.16)}.step:not(:first-child){padding-left:26px}.step:last-child{border-right:0}.step-no{font-size:12px;font-weight:900;color:#a47c48;letter-spacing:1px;margin-bottom:18px}.step h3{margin:0 0 9px;color:#294b35;font-size:18px}.step p{margin:0;color:#718075;line-height:1.65;font-size:14px}
+.home-footer{margin-top:auto;padding:26px 22px;text-align:center;color:#748176;font-size:12px;border-top:1px solid rgba(65,100,72,.1)}
+#plannerScreen{display:none;height:100vh}
+#plannerScreen .back-home{position:absolute;top:12px;left:12px;z-index:2000;background:rgba(245,239,225,.95);color:#315b40;border:1px solid rgba(49,91,64,.35);border-radius:999px;padding:8px 13px;font-weight:800;box-shadow:0 5px 18px rgba(0,0,0,.12);cursor:pointer}
+@media(max-width:800px){.home-links a:not(.home-cta){display:none}.hero{grid-template-columns:1fr;padding-top:58px}.hero-art{min-height:300px}.feature-grid,.steps{grid-template-columns:1fr}.step,.step:not(:first-child){border-right:0;border-bottom:1px solid rgba(65,100,72,.16);padding:24px 0}.step:last-child{border-bottom:0}.home-nav{padding:15px 20px}.hero h1{letter-spacing:-2px}.section{padding:58px 0}}
+
+/* ===== Route-planner experience ===== */
+.planner-shell{height:100%;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box}
+.planner-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 4px 0}
+.planner-title{font-family:Georgia,"Times New Roman",serif;font-size:25px;color:var(--sage-deep);font-weight:700}.planner-sub{font-size:12px;color:var(--mut)}
+.input-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.9px;font-weight:800;color:var(--sage-dark);margin:0 0 5px}
+.field{display:flex;flex-direction:column;min-width:0;flex:1 1 170px}.efficiency-field.hidden{display:none}.field input,.field select{width:100%;box-sizing:border-box}
+#top{padding:12px}.input-grid{display:grid;grid-template-columns:1.25fr 1.25fr 1fr 1fr .7fr auto;gap:9px;align-items:end}.location-field{position:relative}.loc-inline{position:absolute;right:6px;bottom:5px;padding:7px 9px;border-radius:8px;background:var(--sage-soft);color:var(--sage-dark);border:0;box-shadow:none}
+#go{height:40px;padding:0 18px;white-space:nowrap}.planner-note{font-size:11px;color:#7a8178;margin-top:7px}.planner-note strong{color:var(--sage-dark)}
+.route-priorities{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.priority{border:1px solid rgba(49,91,64,.18);background:#fffdf6;color:var(--sage-dark);border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;cursor:pointer}.priority.active{background:var(--sage-dark);color:#fff;border-color:var(--sage-dark)}
+.route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}.route-card{background:#fffdf6;border:1px solid rgba(49,91,64,.16);border-radius:14px;padding:14px;box-shadow:0 7px 18px rgba(58,76,49,.05);cursor:pointer}.route-card.selected{border:2px solid var(--sage);padding:13px;box-shadow:0 10px 24px rgba(58,76,49,.10)}.route-card h4{margin:0 0 7px;color:var(--sage-deep)}.route-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.metric{background:#f2f0e5;border-radius:9px;padding:7px}.metric small{display:block;color:#7a8178;font-size:10px}.metric strong{display:block;color:var(--sage-deep);font-size:13px}.route-badge{display:inline-block;border-radius:999px;padding:3px 8px;background:var(--sage-soft);color:var(--sage-dark);font-size:10px;font-weight:900;margin-left:5px}.recommended{border-left:4px solid #b68b52}
+.why-box,.savings-box,.estimate-box{margin-top:10px;background:#f5f0e3;border:1px solid rgba(49,91,64,.14);border-radius:12px;padding:12px}.why-box h4,.savings-box h4,.estimate-box h4{margin:0 0 6px;color:var(--sage-deep)}
+.save-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.save-grid .metric{text-align:center}.estimate-disclaimer{font-size:11px;color:#6e776f;margin-top:7px}
+.mode-disabled{opacity:.55}.support-note{font-size:11px;color:#8a8170;margin-top:4px}
+@media(max-width:1000px){.input-grid{grid-template-columns:repeat(3,1fr)}.field.passenger-field{grid-column:span 1}.go-field{grid-column:span 1}}
+@media(max-width:650px){.planner-shell{padding:7px}.planner-title{font-size:21px}.input-grid{grid-template-columns:1fr 1fr}.field.wide{grid-column:span 2}.go-field{grid-column:span 2}.save-grid{grid-template-columns:1fr}.route-grid{grid-template-columns:1fr}.planner-head{align-items:flex-start}.planner-head .planner-sub{display:none}}
+
+/* UI refinements */
+.input-grid{grid-template-columns:repeat(7,minmax(120px,1fr));}
+.field,.go-field{min-width:0;}
+.field input,.field select,#go{height:42px;box-sizing:border-box;}
+.passenger-field .input-label{white-space:nowrap;}
+#mapwrap{min-height:0;}
+#plannerScreen .planner-shell{gap:8px;}
+#mapwrap{flex:1 1 auto;}
+</style>
+</head>
+<body>
+  <section id="homeScreen" aria-label="EcoRoute India home">
+    <nav class="home-nav">
+      <div class="brand" data-home>EcoRoute <span>India</span></div>
+      <div class="home-links">
+        <a data-home>Home</a>
+        <a data-scroll="features">Features</a>
+        <a data-scroll="how">How It Works</a>
+        <a class="home-cta" data-plan>Plan My Route →</a>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Eco-friendly route planning</div>
+          <h1>Plan Smarter.<br><em>Travel Greener.</em></h1>
+          <p>Find smarter routes while making more eco-conscious travel choices.</p>
+          <div class="hero-actions">
+            <button class="primary-btn" data-plan>Plan My Route →</button>
+            <button class="secondary-btn" data-scroll="how">How It Works</button>
+          </div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-card">
+            <div class="hero-card-inner">
+              <div class="map-pill">🌿 Smart route · India</div>
+              <div class="route-line"></div><div class="route-dot a"></div><div class="route-dot b"></div>
+              <div class="leaf one">🍃</div><div class="leaf two">🌿</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="section-head">
+          <div class="section-kicker">Why EcoRoute</div>
+          <h2>Travel with a little more thought.</h2>
+          <p>Simple route planning, useful guidance and environmental information — brought together in one clean experience.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-icon">🌿</div><h3>Eco-Friendly Routes</h3><p>Compare routes using environmental considerations along with time and distance.</p></article>
+          <article class="feature-card"><div class="feature-icon">🚗</div><h3>Smarter Travel</h3><p>Choose a vehicle and fuel type to estimate travel-related environmental impact.</p></article>
+          <article class="feature-card"><div class="feature-icon">🗺️</div><h3>Smart Route Planning</h3><p>Enter your starting point and destination and find practical route options.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="how">
+        <div class="section-head">
+          <div class="section-kicker">How It Works</div>
+          <h2>Three simple steps.</h2>
+        </div>
+        <div class="steps">
+          <article class="step"><div class="step-no">01 — ENTER LOCATIONS</div><h3>Enter Locations</h3><p>Starting point aur destination enter karo.</p></article>
+          <article class="step"><div class="step-no">02 — SELECT YOUR VEHICLE</div><h3>Select Your Vehicle</h3><p>Choose your vehicle and relevant fuel or power type.</p></article>
+          <article class="step"><div class="step-no">03 — COMPARE &amp; CHOOSE</div><h3>Compare &amp; Choose</h3><p>Compare time, distance, estimated fuel or energy and estimated CO₂, then choose the route that suits you.</p></article>
+        </div>
+      </section>
+    </main>
+      <section class="section" id="impact">
+        <div class="section-head">
+          <div class="section-kicker">Why It Matters</div>
+          <h2>Make environmental impact visible.</h2>
+          <p>EcoRoute India is designed to make everyday travel decisions easier to compare without pretending that estimated environmental figures are exact.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card"><div class="feature-icon">🌱</div><h3>Reduce unnecessary emissions</h3><p>Use route and vehicle assumptions to compare estimated travel-related emissions.</p></article>
+          <article class="feature-card"><div class="feature-icon">⛽</div><h3>Reduce unnecessary fuel use</h3><p>See estimated fuel or energy consumption alongside distance and time.</p></article>
+          <article class="feature-card"><div class="feature-icon">🚗</div><h3>Encourage smarter choices</h3><p>Compare practical route priorities instead of treating the shortest route as automatically the best one.</p></article>
+          <article class="feature-card"><div class="feature-icon">🌍</div><h3>Make impact visible</h3><p>Keep environmental information visible while planning a real road journey.</p></article>
+        </div>
+      </section>
+    <footer class="home-footer">EcoRoute India · College EVS Project</footer>
+  </section>
+
+  <section id="plannerScreen" aria-label="EcoRoute India route planner">
+    <button class="back-home" id="backHome">← Back to Home</button>
+    <div class="planner-shell">
+      <div class="planner-head">
+        <div><div class="planner-title">Plan your journey</div><div class="planner-sub">Practical routing with estimated environmental impact</div></div>
+      </div>
+      <div id="top" class="box">
+        <div class="input-grid">
+          <div class="field location-field wide"><label class="input-label" for="from">1. Starting Point</label><input id="from" value="Your location" aria-label="Starting point"><button class="loc-inline" id="loc" aria-label="Use my location" title="Use my location">📍</button></div>
+          <div class="field wide"><label class="input-label" for="to">2. Destination</label><input id="to" placeholder="City or place in India" aria-label="Destination"></div>
+          <div class="field"><label class="input-label" for="veh">3. Vehicle Type</label><select id="veh" aria-label="Vehicle type"></select></div>
+          <div class="field"><label class="input-label" for="fuel">4. Fuel / Power</label><select id="fuel" aria-label="Fuel or power type"></select></div>
+          <div class="field passenger-field"><label class="input-label" for="passengers">5. Passengers</label><input id="passengers" type="number" min="1" max="100" value="1" aria-label="Number of passengers"></div>
+          <div class="field efficiency-field" id="efficiencyField"><label class="input-label" for="efficiencyInput" id="efficiencyLabel">6. Vehicle Efficiency</label><input id="efficiencyInput" type="number" min="0.1" step="0.1" aria-label="Vehicle efficiency"></div>
+          <div class="go-field"><button id="go">7. Find Route</button></div>
+        </div>
+      </div>
+      <div id="mapwrap">
+        <div id="map"></div>
+        <button id="legendBtn" aria-expanded="false">Legend</button>
+        <button id="navToggle" aria-expanded="false">🧭 Guidance</button>
+        <div id="navPanel"><div class="box"><div class="nav-title">NEXT MOVE</div><div id="navMain" class="nav-main">Start a route to get guidance.</div><div id="navDist" class="nav-dist"></div></div></div>
+        <div id="legend" class="box">
+          <div><i style="background:rgba(120,135,45,.9)"></i>Forest</div><div><i style="background:rgba(150,95,45,.9)"></i>Mountain / peak area</div><div><i style="background:#718e72"></i>Your selected route</div><div><i style="background:#666"></i>Roads</div>
+          <div><svg width="22" height="14"><circle cx="11" cy="7" r="5" fill="#ff8c1a" stroke="#2f7bff" stroke-width="2.5"/></svg>Refuel station</div>
+          <div><span style="color:#ff8c1a">●</span>Petrol <span style="color:#2f7bff">●</span>Diesel <span style="color:#3ddc7a">●</span>EV <span style="color:#22d3ee">●</span>CNG</div>
+        </div>
+        <button id="chip">Off route · Reroute</button>
+      </div>
+      <div id="bottom" class="box">
+        <div class="route-priorities" role="tablist" aria-label="Route priorities">
+          <button class="priority active" data-priority="eco">🌿 ECO</button><button class="priority" data-priority="fastest">⚡ FASTEST</button><button class="priority" data-priority="shortest">📏 SHORTEST</button>
+          <button id="navBtn" class="priority" type="button">🧭 Start Guidance</button>
+        </div>
+        <div id="res">Enter a starting point and destination, choose a vehicle and fuel/power type, then tap Find Route.</div>
+        <div id="nav"><div class="nav-title">LIVE GUIDANCE</div><div id="navMainBottom" class="nav-main">Start a route and enable guidance.</div><div id="navDistBottom" class="nav-dist"></div></div>
+      </div>
+    </div>
+  </section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const homeScreen=document.getElementById("homeScreen");
+const plannerScreen=document.getElementById("plannerScreen");
+function showPlanner(){
+  homeScreen.style.display="none";
+  plannerScreen.style.display="block";
+  setTimeout(()=>{
+    if(typeof map!=="undefined"){
+      map.invalidateSize();
+      if(!routePts.length && typeof stateBoundaryLayer!=="undefined" && stateBoundaryLayer){
+        const b=stateBoundaryLayer.getBounds(); if(b.isValid()) map.fitBounds(b,{padding:[28,28],maxZoom:5});
+      }
+    }
+  },80);
+  window.scrollTo(0,0);
+}
+function showHome(){
+  plannerScreen.style.display="none";
+  homeScreen.style.display="flex";
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("[data-plan]").forEach(el=>el.addEventListener("click",showPlanner));
+document.querySelectorAll("[data-home]").forEach(el=>el.addEventListener("click",showHome));
+document.querySelectorAll("[data-scroll]").forEach(el=>el.addEventListener("click",()=>{
+  homeScreen.style.display="flex"; plannerScreen.style.display="none";
+  setTimeout(()=>document.getElementById(el.dataset.scroll)?.scrollIntoView({behavior:"smooth",block:"start"}),0);
+}));
+document.getElementById("backHome").onclick=showHome;
+
+const VEHICLE_CONFIG={
+  car:{label:"🚗 Car",modes:{petrol:{label:"Petrol",unit:"L",eff:15,ef:2.31},diesel:{label:"Diesel",unit:"L",eff:18,ef:2.68},cng:{label:"CNG",unit:"kg",eff:20,ef:2.75},electric:{label:"Electric",unit:"kWh",kwhPerKm:0.167,rangeKm:250,ef:0.70}}},
+  bike:{label:"🏍️ Bike",modes:{petrol:{label:"Petrol",unit:"L",eff:40,ef:2.31},electric:{label:"Electric",unit:"kWh",kwhPerKm:0.04,rangeKm:100,ef:0.70}}},
+  bus:{label:"🚌 Bus",modes:{diesel:{label:"Diesel",unit:"L",eff:3.2,ef:2.68},cng:{label:"CNG",unit:"kg",eff:3.5,ef:2.75},electric:{label:"Electric",unit:"kWh",kwhPerKm:1.2,rangeKm:250,ef:0.70}}},
+  bicycle:{label:"🚲 Bicycle",modes:{none:{label:"No fuel",unit:"",eff:null,ef:0}}},
+  walking:{label:"🚶 Walking",modes:{none:{label:"No fuel",unit:"",eff:null,ef:0}}}
+};
+const FUEL={p:["Petrol","#b68b52"],d:["Diesel","#607c60"],e:["EV charging","#718e72"],c:["CNG","#8aa58a"]};
+const $=id=>document.getElementById(id);
+let currentVehicle="car", currentFuel="petrol", routeCandidates=[], selectedRoute=null, routePriority="eco";
+let map=L.map("map",{zoomControl:false}).setView([22.5,79],5);
+L.control.zoom({position:"bottomright"}).addTo(map);
+L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Basemap: Esri World Street Map | Administrative boundaries: Survey of India / Esri India"}).addTo(map);
+let layer=L.layerGroup().addTo(map),gps=null,routePts=[],lastTo=null;
+let indiaBoundaryLayer=null,stateBoundaryLayer=null,indiaMaskLayer=null;
+let routeSteps=[],guidanceOn=false,navMarker=null,wid=null,cur=null;
+
+function populateVehicles(){
+  $("veh").innerHTML=Object.entries(VEHICLE_CONFIG).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  $("veh").value=currentVehicle; updateFuelOptions();
+}
+function updateEfficiencyField(){
+  const field=$("efficiencyField"), input=$("efficiencyInput"), label=$("efficiencyLabel");
+  const cfg=VEHICLE_CONFIG[currentVehicle].modes[currentFuel];
+  if(currentVehicle==="bicycle"||currentVehicle==="walking"){field.classList.add("hidden");return;}
+  field.classList.remove("hidden");
+  if(cfg && cfg.kwhPerKm){label.textContent="6. EV Range (km / full charge)";input.value=cfg.rangeKm;input.min="1";input.step="1";input.placeholder="e.g. 250";input.setAttribute("aria-label","EV range in kilometres per full charge");}
+  else {label.textContent=currentFuel==="cng"?"6. Vehicle Efficiency (km/kg)":"6. Vehicle Efficiency (km/L)";input.value=cfg?.eff??"";input.min="0.1";input.step="0.1";input.placeholder=currentFuel==="cng"?"e.g. 3.5":"e.g. 15";input.setAttribute("aria-label","Vehicle efficiency");}
+}
+function updateFuelOptions(){
+  currentVehicle=$("veh").value; const modes=VEHICLE_CONFIG[currentVehicle].modes;
+  $("fuel").innerHTML=Object.entries(modes).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  if(!modes[currentFuel]) currentFuel=Object.keys(modes)[0];
+  $("fuel").value=currentFuel; updateEfficiencyField();
+  const walkingOrBike=currentVehicle==="bicycle"||currentVehicle==="walking";
+  $("go").textContent=walkingOrBike?"6. Find Route":"7. Find Route";
+}
+$("veh").onchange=()=>{currentFuel="";updateFuelOptions();};
+$("fuel").onchange=()=>{currentFuel=$("fuel").value;updateFuelOptions();};
+$("efficiencyInput").onchange=()=>{updateEfficiencyField();};
+populateVehicles();
+
+const hav=(a,b)=>{const R=6371,r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r,x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x));};
+const SOI_BOUNDARY_SERVICE="https://services2.arcgis.com/fQDJ6zNJPJ0yhFjv/arcgis/rest/services/IND_AdminBoundary/FeatureServer";
+async function loadOfficialIndiaBoundaries(){try{const stateRes=await fetch(SOI_BOUNDARY_SERVICE+"/1/query?where=1%3D1&outFields=*&returnGeometry=true&f=geojson");if(!stateRes.ok)throw new Error("Official state boundary service unavailable.");const states=await stateRes.json();if(!states.features?.length)throw new Error("Official state boundary data was empty.");if(stateBoundaryLayer)map.removeLayer(stateBoundaryLayer);stateBoundaryLayer=L.geoJSON(states,{style:{color:"#607c60",weight:1.5,opacity:.95,fillColor:"#b8c9a9",fillOpacity:.025,interactive:false},onEachFeature:(f,l)=>{const p=f.properties||{},name=p.ST_NM||p.STATE||p.NAME||p.NAME_1||p.st_nm||"Indian State / UT";l.bindTooltip(name,{sticky:true,direction:"top"});}}).addTo(map);if(indiaBoundaryLayer){map.removeLayer(indiaBoundaryLayer);indiaBoundaryLayer=null}if(indiaMaskLayer){map.removeLayer(indiaMaskLayer);indiaMaskLayer=null}stateBoundaryLayer.bringToFront();const b=stateBoundaryLayer.getBounds();if(b.isValid())map.fitBounds(b,{padding:[24,24],maxZoom:5});}catch(e){console.error(e);}}
+loadOfficialIndiaBoundaries();
+
+async function geocode(q){const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q="+encodeURIComponent(q));const j=await r.json();if(!j.length)throw new Error(`Could not find "${q}" in India.`);return [+j[0].lat,+j[0].lon];}
+async function overpass(q){const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q)});if(!r.ok)throw new Error("Map data server is busy.");return (await r.json()).elements;}
+function say(h){$("res").innerHTML=h}
+function getUserAssumption(){
+  const cfg=VEHICLE_CONFIG[currentVehicle].modes[currentFuel];
+  const raw=Number($("efficiencyInput").value);
+  if(!cfg)return null;
+  if(cfg.kwhPerKm){
+    const rangeKm=raw;
+    if(!Number.isFinite(rangeKm)||rangeKm<=0)throw new Error("Enter a valid EV range in km per full charge.");
+    return {...cfg,rangeKm};
+  }
+  if(cfg.eff===null)return cfg;
+  if(!Number.isFinite(raw)||raw<=0)throw new Error(`Enter a valid vehicle efficiency in ${currentFuel==="cng"?"km/kg":"km/L"}.`);
+  return {...cfg,eff:raw};
+}
+function calcEnvironmental(route){
+  const cfg=getUserAssumption();
+  const pax=Math.max(1,parseInt($("passengers").value||1,10));
+  if(!cfg||cfg.eff===null)return {amount:0,unit:"",co2:0,perPassenger:0,label:"No fuel / energy",factor:0};
+  if(cfg.kwhPerKm){
+    const amount=route.km*cfg.kwhPerKm;
+    const co2=amount*cfg.ef;
+    return {amount,unit:"kWh",co2,perPassenger:co2/pax,label:"Estimated Energy Consumption",factor:cfg.ef,rangeKm:cfg.rangeKm};
+  }
+  const amount=route.km/cfg.eff;
+  const co2=amount*cfg.ef;
+  return {amount,unit:cfg.unit,co2,perPassenger:co2/pax,label:"Estimated Fuel Consumption",factor:cfg.ef,efficiency:cfg.eff};
+}
+function sanityCheck(route){
+  const e=route.env;
+  if(!Number.isFinite(e.amount)||!Number.isFinite(e.co2)||e.amount<0||e.co2<0)throw new Error("Environmental calculation returned an invalid value.");
+  if(e.unit==="L"&&e.amount>route.km/0.1)throw new Error("Fuel estimate failed a sanity check. Please verify vehicle efficiency units.");
+  if(e.unit==="kWh"&&e.amount>route.km*5)throw new Error("Energy estimate failed a sanity check. Please verify EV consumption assumptions.");
+}
+function enrichScores(routes){
+  const calc=routes.map(r=>{const x={...r,env:calcEnvironmental(r)};sanityCheck(x);return x;});
+  const minCO=Math.min(...calc.map(r=>r.env.co2)),maxCO=Math.max(...calc.map(r=>r.env.co2));
+  const minD=Math.min(...calc.map(r=>r.km)),maxD=Math.max(...calc.map(r=>r.km));
+  const minT=Math.min(...calc.map(r=>r.min)),maxT=Math.max(...calc.map(r=>r.min));
+  const norm=(v,min,max)=>max===min?0.5:1-(v-min)/(max-min);
+  calc.forEach(r=>{
+    const co2Rel=minCO/Math.max(r.env.co2,0.0001);
+    const dRel=minD/Math.max(r.km,0.0001);
+    const tRel=minT/Math.max(r.min,0.0001);
+    const comparison=.65*co2Rel+.20*dRel+.15*tRel;
+    const absolutePenalty=Math.min(1,(r.env.co2/Math.max(r.km,1))/0.5);
+    r.ecoScore=Math.max(1,Math.min(99,Math.round(100*(.8*comparison+.2*(1-absolutePenalty)))));
+  });
+  return calc;
+}
+function chooseRoute(){
+  if(!routeCandidates.length)return null;
+  if(routePriority==="fastest")return [...routeCandidates].sort((a,b)=>a.min-b.min)[0];
+  if(routePriority==="shortest")return [...routeCandidates].sort((a,b)=>a.km-b.km)[0];
+  const shortest=routeCandidates.reduce((a,b)=>a.km<b.km?a:b); const practical=routeCandidates.filter(r=>r.km<=shortest.km*1.15);
+  return [...practical].sort((a,b)=>b.ecoScore-a.ecoScore)[0]||shortest;
+}
+function routeCard(r,i){const sel=selectedRoute===r,tag=r===routeCandidates.reduce((a,b)=>a.min<b.min?a:b)?"FASTEST":r===routeCandidates.reduce((a,b)=>a.km<b.km?a:b)?"SHORTEST":"";return `<article class="route-card ${sel?"selected":""} ${r===chooseRoute()?"recommended":""}" data-route-index="${i}"><h4>Route ${String.fromCharCode(65+i)} ${tag?`<span class="route-badge">${tag}</span>`:""}</h4><div class="route-meta"><div class="metric"><small>Distance</small><strong>${r.km.toFixed(1)} km</strong></div><div class="metric"><small>Estimated time</small><strong>${formatTime(r.min)}</strong></div><div class="metric"><small>${r.env.unit==="kWh"?"Estimated energy":"Estimated fuel"}</small><strong>${r.env.amount.toFixed(2)} ${r.env.unit}</strong></div><div class="metric"><small>Estimated CO₂</small><strong>${r.env.co2.toFixed(2)} kg CO₂</strong></div></div><div><strong>🌿 Eco Score ${r.ecoScore}/100</strong></div></article>`;}
+function formatTime(min){const h=Math.floor(min/60),m=Math.round(min%60);return h?`${h} h ${m} min`:`${m} min`;}
+function renderResults(){
+  if(!routeCandidates.length)return;
+  const rec=chooseRoute(); selectedRoute=rec; drawRoute(rec);
+  const fastest=routeCandidates.reduce((a,b)=>a.min<b.min?a:b), shortest=routeCandidates.reduce((a,b)=>a.km<b.km?a:b);
+  const savedCO2=fastest.env.co2-rec.env.co2, savedFuel=fastest.env.amount-rec.env.amount, extraMin=rec.min-fastest.min;
+  let savings=""; if(rec!==fastest && savedCO2>0){savings=`<div class="savings-box"><h4>🌿 Estimated comparison</h4><div class="save-grid"><div class="metric"><small>Estimated CO₂ saved</small><strong>${((savedCO2/Math.max(fastest.env.co2,.001))*100).toFixed(0)}%</strong></div><div class="metric"><small>Estimated fuel/energy saved</small><strong>${Math.max(0,savedFuel).toFixed(2)} ${rec.env.unit}</strong></div><div class="metric"><small>Additional travel time</small><strong>${Math.max(0,extraMin).toFixed(0)} min</strong></div></div><div class="estimate-disclaimer">Choosing this Eco Route may reduce estimated CO₂ compared with the fastest available route based on the selected vehicle assumptions.</div></div>`;}
+  const why=routePriority==="eco"?`This route is recommended because it has the strongest estimated Eco Score among practical alternatives (within 15% of the shortest route).`:routePriority==="fastest"?`This route is selected because it has the lowest estimated travel time among the available route alternatives.`:`This route is selected because it has the shortest road distance among the available route alternatives.`;
+  say(`<div class="route-grid">${routeCandidates.map(routeCard).join("")}</div><div class="why-box"><h4>Why this route?</h4><div>${why}</div><div class="route-meta"><div class="metric"><small>Distance</small><strong>${rec.km.toFixed(1)} km</strong></div><div class="metric"><small>Estimated time</small><strong>${formatTime(rec.min)}</strong></div><div class="metric"><small>${rec.env.unit==="kWh"?"Estimated Energy":"Estimated Fuel"}</small><strong>${rec.env.amount.toFixed(2)} ${rec.env.unit}</strong></div><div class="metric"><small>Estimated CO₂</small><strong>${rec.env.co2.toFixed(2)} kg CO₂</strong></div></div><strong>🌿 Eco Score ${rec.ecoScore}/100</strong><div class="estimate-disclaimer">Estimated CO₂ per passenger: ${rec.env.perPassenger.toFixed(2)} kg CO₂ · Eco Score is an estimated comparison based on route and vehicle assumptions.</div></div>${savings}<div class="estimate-box"><h4>About the Estimates</h4><div class="estimate-disclaimer">Environmental figures are estimates based on vehicle, fuel and route assumptions. Actual values may vary with traffic, driving behaviour, vehicle condition, road conditions, weather, passengers, air-conditioning and real-time changes.</div>${currentVehicle==="car"&&parseInt($("passengers").value||1,10)>1?`<div class="estimate-disclaimer"><strong>Carpooling insight:</strong> With ${$("passengers").value} passengers, estimated CO₂ per passenger is ${rec.env.perPassenger.toFixed(2)} kg for this trip.</div>`:""}</div><div id="stn" class="planner-note">Looking for refuel stations…</div>`);
+  document.querySelectorAll("[data-route-index]").forEach(el=>el.onclick=()=>{selectedRoute=routeCandidates[+el.dataset.routeIndex];drawRoute(selectedRoute);renderCardsOnly();stations(selectedRoute.pts);});
+  stations(rec.pts); updateGuidance();
+}
+function renderCardsOnly(){const grid=document.querySelector(".route-grid");if(grid)grid.innerHTML=routeCandidates.map(routeCard).join("");document.querySelectorAll("[data-route-index]").forEach(el=>el.onclick=()=>{selectedRoute=routeCandidates[+el.dataset.routeIndex];drawRoute(selectedRoute);renderCardsOnly();stations(selectedRoute.pts);});}
+function drawRoute(pick){
+  layer.clearLayers();
+  if(pick.zoneForests)pick.zoneForests.forEach(f=>L.polygon(f.geometry.map(g=>[g.lat,g.lon]),{stroke:false,fillColor:"#a9b47a",fillOpacity:.4}).addTo(layer));
+  if(pick.zonePeaks)pick.zonePeaks.forEach(k=>L.circle([k.lat,k.lon],{radius:2500,stroke:false,fillColor:"#b89563",fillOpacity:.35}).addTo(layer));
+  L.polyline(pick.pts,{color:"#fffdf6",weight:9,opacity:.95}).addTo(layer);L.polyline(pick.pts,{color:"#718e72",weight:5,opacity:1}).addTo(layer);
+  if(stateBoundaryLayer)stateBoundaryLayer.bringToFront();
+  const s=pick.start,d=pick.dest;L.circleMarker(s,{radius:8,color:"#607c60",fillColor:"#fffdf6",fillOpacity:1}).bindTooltip("Start").addTo(layer);L.circleMarker(d,{radius:8,color:"#b68b52",weight:4,fillColor:"#fffdf6",fillOpacity:1}).bindTooltip("Destination").addTo(layer);
+  routePts=pick.pts;routeSteps=pick.steps||[];if(navMarker)navMarker.remove();$("chip").style.display="none";map.fitBounds(L.polyline(pick.pts).getBounds(),{padding:[30,30]});updateGuidance();watch();
+}
+async function chargingStationsForRoute(route){
+  const step=Math.max(1,Math.floor(route.pts.length/60));
+  const line=route.pts.filter((_,i)=>i%step===0).map(p=>p[0].toFixed(4)+","+p[1].toFixed(4)).join(",");
+  if(!line)return [];
+  const els=await overpass(`[out:json][timeout:25];nwr["amenity"="charging_station"](around:2500,${line});out center tags 100;`);
+  return els.map(e=>{const t=e.tags||{},ll=e.type==="node"?[e.lat,e.lon]:[e.center.lat,e.center.lon];return {lat:ll[0],lon:ll[1],name:t.name||t.brand||"EV charging station"};});
+}
+function routeStationCoverage(route,stations,rangeKm){
+  if(!stations.length)return false;
+  const pts=route.pts;
+  const stationDistances=[];
+  stations.forEach(st=>{let best=Infinity,bestCum=0,cum=0;for(let i=1;i<pts.length;i++){cum+=hav(pts[i-1],pts[i]);const d=hav([st.lat,st.lon],pts[i]);if(d<best){best=d;bestCum=cum;}}if(best<=2.5)stationDistances.push(bestCum);});
+  stationDistances.sort((a,b)=>a-b);
+  const total=route.km;
+  if(total<=rangeKm)return true;
+  let last=0;
+  for(const d of stationDistances){if(d-last<=rangeKm){last=d;} }
+  return total-last<=rangeKm;
+}
+async function plan(startOverride){
+  try{
+    const vehicle=currentVehicle;
+    if(vehicle==="walking"||vehicle==="bicycle")throw new Error("The current road-routing service only provides driving routes. Walking/cycling routing is not enabled, so EcoRoute will not present a vehicle route as if it were a walking or bicycle route.");
+    say("Finding practical route alternatives…");
+    let s=startOverride;if(!s){const t=$("from").value.trim();s=(t==="Your location"&&gps)?gps:await geocode(t==="Your location"?"":t);}
+    const d=lastTo&&startOverride?lastTo:await geocode($("to").value.trim());lastTo=d;
+    const u=`https://router.project-osrm.org/route/v1/driving/${s[1]},${s[0]};${d[1]},${d[0]}?overview=full&geometries=geojson&alternatives=true&steps=true`;
+    const rr=await (await fetch(u)).json();if(!rr.routes||!rr.routes.length)throw new Error("No road route found between these places.");
+    let routes=rr.routes.map((r,i)=>({id:i,km:r.distance/1000,min:r.duration/60,pts:r.geometry.coordinates.map(c=>[c[1],c[0]]),steps:r.legs.flatMap(l=>l.steps||[]),start:s,dest:d})).filter(r=>r.km>0&&r.pts.length>1);
+    const straightKm=hav(s,d);routes=routes.filter(r=>r.km>=straightKm*.98&&r.km<=Math.max(straightKm*4,straightKm+250));if(!routes.length)throw new Error("Could not find a realistic drivable route between these locations.");
+    const all=routes.flatMap(r=>r.pts),la=all.map(p=>p[0]),lo=all.map(p=>p[1]),b=[Math.min(...la)-.05,Math.min(...lo)-.05,Math.max(...la)+.05,Math.max(...lo)+.05].join(",");let els=[];try{els=await overpass(`[out:json][timeout:25];(way["natural"="wood"](${b});way["landuse"="forest"](${b});node["natural"="peak"](${b}););out geom 250;`);}catch(e){}
+    const forests=els.filter(e=>e.type==="way"&&e.bounds),peaks=els.filter(e=>e.type==="node");
+    routes.forEach(r=>{const step=Math.max(1,Math.floor(r.pts.length/120)),sm=r.pts.filter((_,i)=>i%step===0),hit=sm.filter(p=>forests.some(f=>p[0]>f.bounds.minlat-.004&&p[0]<f.bounds.maxlat+.004&&p[1]>f.bounds.minlon-.004&&p[1]<f.bounds.maxlon+.004)||peaks.some(k=>Math.abs(p[0]-k.lat)<.03&&Math.abs(p[1]-k.lon)<.03)).length;r.sens=hit/Math.max(1,sm.length);r.zoneForests=forests;r.zonePeaks=peaks;});
+    if(currentFuel==="electric") {
+      const evCfg=getUserAssumption();
+      const insufficient=routes.filter(r=>r.km>evCfg.rangeKm);
+      if(insufficient.length){
+        say("Checking EV charging coverage for routes…");
+        const checked=await Promise.all(routes.map(async r=>{try{const cs=await chargingStationsForRoute(r);return {...r,chargingStations:cs,chargeFeasible:routeStationCoverage(r,cs,evCfg.rangeKm)};}catch(e){return {...r,chargingStations:[],chargeFeasible:false};}}));
+        const feasible=checked.filter(r=>r.chargeFeasible);
+        if(!feasible.length)throw new Error(`The selected EV range (${evCfg.rangeKm.toFixed(0)} km per full charge) is not enough for these routes, and no suitable EV charging station coverage was found. Increase the range or choose another vehicle.`);
+        routes=checked.filter(r=>r.km<=evCfg.rangeKm||r.chargeFeasible);
+      } else {routes=routes.map(r=>({...r,chargingStations:[],chargeFeasible:true}));}
+    }
+    routeCandidates=enrichScores(routes);routeCandidates.sort((a,b)=>a.km-b.km);selectedRoute=chooseRoute();renderResults();
+  }catch(e){say("<strong>Could not plan this route.</strong><br>"+e.message)}
+}
+async function stations(pts){try{const step=Math.max(1,Math.floor(pts.length/40)),line=pts.filter((_,i)=>i%step===0).map(p=>p[0].toFixed(4)+","+p[1].toFixed(4)).join(","),els=await overpass(`[out:json][timeout:25];(nwr["amenity"="fuel"](around:1200,${line});nwr["amenity"="charging_station"](around:1200,${line}););out center tags 80;`);els.forEach(e=>{const t=e.tags||{},ll=e.type==="node"?[e.lat,e.lon]:[e.center.lat,e.center.lon];let f="";if(t.amenity==="charging_station")f="e";else{if(Object.keys(t).some(k=>/^fuel:(octane|petrol|e10|e5)/.test(k)&&t[k]==="yes"))f+="p";if(t["fuel:diesel"]==="yes")f+="d";if(t["fuel:cng"]==="yes")f+="c";if(!f)f="pd";}const dots=Object.keys(FUEL).map(k=>{const has=f.includes(k);return `<span style="opacity:${has?1:.25}"><em style="background:${FUEL[k][1]}"></em>${FUEL[k][0]}</span>`}).join("");L.circleMarker(ll,{radius:8,color:"#718e72",weight:2,fillColor:"#b68b52",fillOpacity:1}).bindPopup(`<b>${t.name||t.brand||"Refuel station"}</b><div class="dots">${dots}</div>`).addTo(layer);});const x=$("stn");if(x)x.textContent=els.length+" refuel/charging station"+(els.length===1?"":"s")+" near this route.";}catch(e){const x=$("stn");if(x)x.textContent="Refuel station data could not load right now.";}}
+function watch(){if(!navigator.geolocation||wid!==null)return;wid=navigator.geolocation.watchPosition(p=>{cur=[p.coords.latitude,p.coords.longitude];if(navMarker)navMarker.setLatLng(cur);const off=routePts.length&&Math.min(...routePts.map(q=>hav(cur,q)))>.3;$("chip").style.display=off?"block":"none";updateGuidance();},()=>{},{enableHighAccuracy:true,maximumAge:2000,timeout:10000});}
+function prettyManeuver(step){const type=step.maneuver?.type||"",mod=step.maneuver?.modifier||"";if(type==="arrive")return"You have arrived at your destination.";if(type==="depart")return"Start driving";if(type==="roundabout"||type==="rotary"){const exit=step.maneuver?.exit;return exit?`Enter the roundabout, take exit ${exit}`:"Enter the roundabout";}const words={"sharp right":"Turn sharp right",right:"Turn right","slight right":"Keep right","sharp left":"Turn sharp left",left:"Turn left","slight left":"Keep left",straight:"Continue straight",uturn:"Make a U-turn"};return words[mod]||(type==="fork"?"Take the fork":"Continue on the road");}
+function updateGuidance(){if(!routePts.length||!routeSteps.length){setNavText("Start a route to get guidance.","");return;}const pos=cur||routePts[0];let best=-1,bestD=Infinity;routeSteps.forEach((s,i)=>{const loc=s.maneuver?.location;if(!loc)return;const d=hav(pos,[loc[1],loc[0]]);if(d<bestD){bestD=d;best=i;}});if(best<0)return;if(bestD<.04&&best+1<routeSteps.length)best++;const step=routeSteps[best],loc=step.maneuver?.location,dist=loc?hav(pos,[loc[1],loc[0]]):0;setNavText(prettyManeuver(step),dist<1?`${Math.round(dist*1000)} m ahead`:`${dist.toFixed(1)} km ahead`);}
+function setNavText(main,dist){["navMain","navMainBottom"].forEach(id=>{if($(id))$(id).textContent=main;});["navDist","navDistBottom"].forEach(id=>{if($(id))$(id).textContent=dist;});}
+$("navBtn").onclick=()=>{guidanceOn=!guidanceOn;$("nav").style.display=guidanceOn?"block":"none";$("navBtn").classList.toggle("active",guidanceOn);$("navBtn").textContent=guidanceOn?"🧭 Guidance On":"🧭 Start Guidance";if(guidanceOn){if(navigator.geolocation)watch();updateGuidance();if(cur){if(!navMarker)navMarker=L.circleMarker(cur,{radius:8,color:"#607c60",weight:3,fillColor:"#d9e3cf",fillOpacity:1}).bindTooltip("You are here").addTo(layer);else navMarker.setLatLng(cur);}}};
+$("navToggle").onclick=()=>{const panel=$("navPanel"),open=panel.style.display==="block";panel.style.display=open?"none":"block";$("navToggle").setAttribute("aria-expanded",String(!open));$("navToggle").textContent=open?"🧭 Guidance":"🧭 Hide Guidance";};
+$("chip").onclick=()=>{if(cur)plan(cur)};$("go").onclick=()=>{lastTo=null;plan()};$("legendBtn").onclick=()=>{const l=$("legend"),o=l.style.display==="block";l.style.display=o?"none":"block";$("legendBtn").setAttribute("aria-expanded",!o)};
+document.querySelectorAll("[data-priority]").forEach(btn=>btn.onclick=()=>{routePriority=btn.dataset.priority;document.querySelectorAll("[data-priority]").forEach(b=>b.classList.toggle("active",b===btn));if(routeCandidates.length){selectedRoute=chooseRoute();renderResults();}});
+$("passengers").onchange=()=>{if(routeCandidates.length){routeCandidates=enrichScores(routeCandidates.map(r=>({...r})));renderResults();}};
+$("efficiencyInput").onchange=()=>{if(routeCandidates.length){routeCandidates=enrichScores(routeCandidates.map(r=>({...r})));renderResults();}else updateEfficiencyField();};
+</script>
+</body>
+</html>
